@@ -36,3 +36,9 @@ allow_mock_billing=false, staging_validation_enabled=false 상태입니다. 관�
 `getSupabaseConfig`는 Data API URL의 `/rest/v1` 및 `/rest/v1/`을 프로젝트 origin으로 정규화합니다. 사용자정보·쿼리·fragment·다른 API 경로를 포함한 주소는 거부합니다. SDK RPC 경로가 한 번만 붙는 회귀 테스트를 추가했습니다. 기존 Windows 복사본은 `.env.local`의 NEXT_PUBLIC_SUPABASE_URL을 프로젝트 origin으로 수정해 재시작하면 동일하게 해결할 수 있습니다.
 
 회원가입을 위한 최소 서버 설정은 Supabase URL·공개 키·서버 키와 내부 요청 제한용 CRON_SECRET입니다. CRON_SECRET 설정은 외부 Cron 서비스를 호출하지 않습니다. 실제 브라우저 회원가입은 URL 수정 후 재검증이 필요합니다.
+
+## 브랜드 선택 항목 저장 보완
+
+브랜드 이름만 필수로 유지하고 업종·주요 고객·말투·소개·주소·키워드·금칙어는 빈 값 또는 생략을 허용합니다. 도메인 형태의 주소는 HTTPS 주소로 정규화하며 숫자·잘못된 주소·HTTP(S) 외 프로토콜은 거부합니다. 브라우저 기본 URL 검사 대신 공통 입력 계약으로 검증하여 오류가 난 주소 항목을 안내합니다. 기존 DB는 빈 값과 기본값을 지원하므로 migration 변경이 필요하지 않습니다.
+
+실제 Supabase에서 별도의 관리자 생성·사전 인증 임시 계정으로 비밀번호 로그인, 이름만 있는 브랜드 저장, 선택 문자열·배열 기본값, DB 재조회와 임시 계정 정리를 확인했습니다. 모두 PASS입니다. 사용자 본인의 브라우저에서 수정 후 저장·새로고침 결과는 아직 확인하지 않았습니다.

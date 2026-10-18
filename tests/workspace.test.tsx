@@ -165,6 +165,44 @@ test("news transfers title, source text and URL to studio", async () => {
     screen.getByRole("link", { name: "원문 보기 ↗" }).getAttribute("href"),
   ).toBe("https://publisher.example/1");
 });
+test("brand saves with only a name and optional bare website; invalid optional URL explains the field", async () => {
+  const user = userEvent.setup();
+  render(<Workspace userId={id} />);
+  await screen.findByText("DB 초안 · 추가 목록은 라이브러리에서");
+  await user.click(screen.getByRole("button", { name: "브랜드 브레인" }));
+  await user.click(screen.getByRole("button", { name: "새 브랜드" }));
+  await user.type(screen.getByLabelText("브랜드 이름"), "이름만 있는 가게");
+  for (const label of ["업종", "주요 고객", "브랜드 말투", "브랜드 소개"])
+    await user.clear(screen.getByLabelText(label));
+  await user.click(screen.getByRole("button", { name: "브랜드 정보 저장" }));
+  await screen.findByText("브랜드 정보를 DB에 저장했어요.");
+  const body = () =>
+    JSON.parse(
+      String(
+        mocks.api.mock.calls
+          .filter(([path, options]) => path === "/api/brands" && options)
+          .at(-1)![1].body,
+      ),
+    );
+  expect(body()).toMatchObject({
+    name: "이름만 있는 가게",
+    industry: "",
+    audience: "",
+    voice: "",
+    description: "",
+    website: "",
+    keywords: [],
+    forbidden_words: [],
+  });
+  await user.type(screen.getByLabelText("웹사이트"), "www.example.com");
+  await user.click(screen.getByRole("button", { name: "브랜드 정보 저장" }));
+  await waitFor(() => expect(body().website).toBe("https://www.example.com"));
+  await user.type(screen.getByLabelText("블로그 URL"), "1");
+  const calls = mocks.api.mock.calls.length;
+  await user.click(screen.getByRole("button", { name: "브랜드 정보 저장" }));
+  await screen.findByText(/블로그 URL 주소를 확인해 주세요/);
+  expect(mocks.api.mock.calls).toHaveLength(calls);
+});
 test("AI failure shows safe message and restores generate button", async () => {
   const user = userEvent.setup();
   mocks.api.mockImplementation(async (path) => {

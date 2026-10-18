@@ -104,6 +104,49 @@ test("brand write binds user ID from session; rejects malformed data", async () 
   );
   expect((await saveBrand(request("brands", { name: "" }))).status).toBe(400);
 });
+test("brand API accepts name-only requests and normalizes optional URLs without weakening validation", async () => {
+  const q = chain({ data: brand, error: null });
+  f.from.mockReturnValue(q);
+  expect((await saveBrand(request("brands", { name: "가게" }))).status).toBe(
+    200,
+  );
+  expect(q.insert).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      brand_name: "가게",
+      industry: "",
+      description: "",
+      target_customer: "",
+      tone: "",
+      website: "",
+      blog_url: "",
+      instagram: "",
+      threads: "",
+      keywords: [],
+      forbidden_words: [],
+    }),
+  );
+  expect(
+    (
+      await saveBrand(
+        request("brands", { name: "가게", website: "  www.example.com  " }),
+      )
+    ).status,
+  ).toBe(200);
+  expect(q.insert).toHaveBeenLastCalledWith(
+    expect.objectContaining({ website: "https://www.example.com" }),
+  );
+  for (const website of [
+    "1",
+    "javascript:alert(1)",
+    "ftp://example.com",
+    "https://",
+    "x".repeat(2049),
+  ])
+    expect(
+      (await saveBrand(request("brands", { name: "가게", website }))).status,
+    ).toBe(400);
+  expect((await saveBrand(request("brands", { name: "  " }))).status).toBe(400);
+});
 test("content save checks brand ownership and forces draft state", async () => {
   const q = chain({
     data: {

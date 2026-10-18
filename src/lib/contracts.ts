@@ -12,17 +12,28 @@ const url = z
       ),
   ])
   .default("");
+const brandUrl = z
+  .string()
+  .trim()
+  .max(2048)
+  .transform((value) =>
+    /^(?:[\p{L}\d-]+\.)+[\p{L}]{2,}(?::\d+)?(?:[/?#]|$)/u.test(value)
+      ? `https://${value}`
+      : value,
+  )
+  .pipe(url.removeDefault())
+  .default("");
 export const brandInput = z.object({
   id: z.uuid().optional(),
-  name: text(150).min(1),
-  industry: text(150),
-  audience: text(150),
-  voice: text(150),
-  description: text(1000),
-  website: url,
-  blog_url: url,
-  instagram: url,
-  threads: url,
+  name: text(150).min(1, "브랜드 이름을 입력해 주세요."),
+  industry: text(150).default(""),
+  audience: text(150).default(""),
+  voice: text(150).default(""),
+  description: text(1000).default(""),
+  website: brandUrl,
+  blog_url: brandUrl,
+  instagram: brandUrl,
+  threads: brandUrl,
   keywords: z.array(text(50).min(1)).max(20).default([]),
   forbidden_words: z.array(text(50).min(1)).max(20).default([]),
 });

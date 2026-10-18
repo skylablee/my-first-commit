@@ -33,6 +33,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { emptyBrand, type Brand, type Content } from "@/lib/content";
 import { api } from "@/lib/client-api";
+import { brandInput } from "@/lib/contracts";
 import { AIStudio, type StudioSource } from "./ai-studio";
 import { NewsRadar } from "./news-radar";
 import { ConfigStatus } from "./config-status";
@@ -223,17 +224,34 @@ export function Workspace({
   async function saveBrand() {
     setBusy(true);
     try {
+      const input = brandInput.safeParse({
+        ...brandDraft,
+        keywords: (brandDraft.keywords ?? [])
+          .map((v) => v.trim())
+          .filter(Boolean),
+        forbidden_words: (brandDraft.forbidden_words ?? [])
+          .map((v) => v.trim())
+          .filter(Boolean),
+      });
+      if (!input.success) {
+        const field = String(input.error.issues[0]?.path[0]);
+        const labels: Record<string, string> = {
+          website: "웹사이트",
+          blog_url: "블로그 URL",
+          instagram: "Instagram URL",
+          threads: "Threads URL",
+        };
+        throw new Error(
+          labels[field]
+            ? `${labels[field]} 주소를 확인해 주세요. 비워 두거나 example.com 또는 https://로 시작하는 주소를 입력해 주세요.`
+            : field === "name"
+              ? "브랜드 이름을 1~150자로 입력해 주세요."
+              : "입력 내용의 글자 수와 항목 수를 확인해 주세요.",
+        );
+      }
       const data = await api<{ brand: Brand }>("/api/brands", {
         method: brandDraft.id ? "PATCH" : "POST",
-        body: JSON.stringify({
-          ...brandDraft,
-          keywords: (brandDraft.keywords ?? [])
-            .map((v) => v.trim())
-            .filter(Boolean),
-          forbidden_words: (brandDraft.forbidden_words ?? [])
-            .map((v) => v.trim())
-            .filter(Boolean),
-        }),
+        body: JSON.stringify(input.data),
       });
       setBrand(data.brand);
       setBrandDraft(data.brand);
@@ -767,6 +785,10 @@ export function Workspace({
                 저장한 정보는 내 계정의 Supabase DB에 보관되며 AI 생성에
                 반영됩니다.
               </p>
+              <p className="muted">
+                브랜드 이름만 필수입니다. 나머지는 비워 두고 나중에 추가해도
+                됩니다. 주소가 없다면 숫자나 점 대신 빈칸으로 남겨 주세요.
+              </p>
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
@@ -785,7 +807,7 @@ export function Workspace({
                     <label key={key}>
                       {label}
                       <input
-                        required
+                        required={key === "name"}
                         maxLength={150}
                         value={brandDraft[key]}
                         onChange={(e) =>
@@ -801,7 +823,6 @@ export function Workspace({
                 <label>
                   브랜드 소개
                   <textarea
-                    required
                     maxLength={1000}
                     rows={4}
                     value={brandDraft.description}
@@ -825,7 +846,9 @@ export function Workspace({
                     <label key={key}>
                       {label}
                       <input
-                        type="url"
+                        type="text"
+                        inputMode="url"
+                        placeholder="선택 · example.com 또는 https://…"
                         maxLength={2048}
                         value={brandDraft[key] ?? ""}
                         onChange={(e) =>
