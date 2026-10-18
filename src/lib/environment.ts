@@ -20,6 +20,7 @@ export const environmentNames = [
   "PAYMENT_PRICE_AGENCY",
   "CRON_SECRET",
   "APP_URL",
+  "DEPLOYMENT_PROFILE",
 ] as const;
 export function appEnvironment(
   env: Record<string, string | undefined> = process.env,
@@ -41,24 +42,37 @@ export function validateEnvironment(
     errors.push(
       "APP_ENV는 development/staging/production/test 중 하나여야 합니다.",
     );
-  const required = [
-    "NEXT_PUBLIC_SUPABASE_URL",
-    "NEXT_PUBLIC_SUPABASE_ANON_KEY",
-    "SUPABASE_SERVICE_ROLE_KEY",
+  const profile = env.DEPLOYMENT_PROFILE ?? "full";
+  if (!["core", "full"].includes(profile))
+    errors.push("DEPLOYMENT_PROFILE은 core/full 중 하나여야 합니다.");
+  const threadsKeys = [
     "TOKEN_ENCRYPTION_KEY",
     "THREADS_APP_ID",
     "THREADS_APP_SECRET",
     "THREADS_REDIRECT_URI",
-    "NAVER_CLIENT_ID",
-    "NAVER_CLIENT_SECRET",
-    "CRON_SECRET",
-    "APP_URL",
+  ];
+  const newsKeys = ["NAVER_CLIENT_ID", "NAVER_CLIENT_SECRET"];
+  const billingKeys = [
     "PAYMENT_PROVIDER",
     "PAYMENT_SECRET_KEY",
     "PAYMENT_WEBHOOK_SECRET",
     "PAYMENT_PRICE_STARTER",
     "PAYMENT_PRICE_PRO",
     "PAYMENT_PRICE_AGENCY",
+  ];
+  const enabled = (keys: string[]) =>
+    profile !== "core" || keys.some((key) => Boolean(env[key]));
+  const threadsEnabled = enabled(threadsKeys);
+  const billingEnabled = enabled(billingKeys);
+  const required = [
+    "NEXT_PUBLIC_SUPABASE_URL",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "CRON_SECRET",
+    "APP_URL",
+    ...(threadsEnabled ? threadsKeys : []),
+    ...(enabled(newsKeys) ? newsKeys : []),
+    ...(billingEnabled ? billingKeys : []),
   ];
   if (stage === "production" || stage === "staging") {
     for (const name of required)
@@ -87,7 +101,7 @@ export function validateEnvironment(
       !env.PAYMENT_WEBHOOK_SECRET.startsWith("whsec_")
     )
       errors.push("Stripe webhook signing secret 형식을 확인하세요.");
-    if (env.PAYMENT_PROVIDER !== "stripe")
+    if (billingEnabled && env.PAYMENT_PROVIDER !== "stripe")
       errors.push(
         "운영 결제는 현재 stripe만 지원합니다. mock은 development/test 전용입니다.",
       );
@@ -95,7 +109,7 @@ export function validateEnvironment(
       errors.push("CRON_SECRET은 32자 이상이어야 합니다.");
     for (const key of [
       "APP_URL",
-      "THREADS_REDIRECT_URI",
+      ...(threadsEnabled ? ["THREADS_REDIRECT_URI"] : []),
       "NEXT_PUBLIC_SUPABASE_URL",
     ]) {
       try {
@@ -111,17 +125,18 @@ export function validateEnvironment(
         errors.push(`${key}에 공개 HTTPS URL이 필요합니다.`);
       }
     }
-    try {
-      if (
-        new URL(env.THREADS_REDIRECT_URI ?? "").origin !==
-          new URL(env.APP_URL ?? "").origin ||
-        new URL(env.THREADS_REDIRECT_URI ?? "").pathname !==
-          "/api/threads/callback"
-      )
-        errors.push(
-          "THREADS_REDIRECT_URI는 APP_URL의 /api/threads/callback 이어야 합니다.",
-        );
-    } catch {}
+    if (threadsEnabled)
+      try {
+        if (
+          new URL(env.THREADS_REDIRECT_URI ?? "").origin !==
+            new URL(env.APP_URL ?? "").origin ||
+          new URL(env.THREADS_REDIRECT_URI ?? "").pathname !==
+            "/api/threads/callback"
+        )
+          errors.push(
+            "THREADS_REDIRECT_URI는 APP_URL의 /api/threads/callback 이어야 합니다.",
+          );
+      } catch {}
   }
   if (
     env.TOKEN_ENCRYPTION_KEY &&

@@ -61,6 +61,10 @@ update public.operating_settings set allow_mock_billing = true where id = true;
 
 `APP_ENV`는 development/staging/production입니다. Vercel production/preview는 각각 production/staging으로 강제되어 APP_ENV=development로 검증을 우회할 수 없습니다. production/staging의 필수 값 누락·잘못된 HTTPS URL·mock 결제는 **prebuild에서 실패**합니다. OpenAI/Gemini는 최소 한 제공자가 필요합니다. Stripe Checkout은 서버 URL 이동 방식이므로 PAYMENT_CLIENT_KEY를 브라우저에 전달하지 않으며 현재 사용하지 않습니다. PHASE 1의 `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`도 호환됩니다.
 
+처음 Vercel에 로그인·브랜드·AI만 배포할 때는 `DEPLOYMENT_PROFILE=core`로 설정합니다. 이때 Supabase 3개 변수, AI 키 하나 이상, 32자 이상 `CRON_SECRET`, 실제 배포 주소인 HTTPS `APP_URL`이 필요합니다. 네이버·Threads·결제 변수는 미사용 시 추가하지 않습니다. 일부만 설정하면 해당 연동의 나머지 설정도 요구합니다. 기본값 `full`은 기존 전체 운영 검증을 유지하며 core에서도 인증·요청 제한·사용량 한도·운영 mock 결제 금지는 유지됩니다. 실제 결제와 예약 게시 검증이 끝난 유료 서비스라는 의미는 아닙니다.
+
+기본 `vercel.json`에는 자동 Cron을 등록하지 않습니다. Threads와 예약 발행을 연결할 때 요금제에 맞는 scheduler를 별도로 설정해야 예약이 실행됩니다. Vercel Git의 Production Branch는 앱 코드가 있는 `bizcontent-deploy`인지 확인하고, 배포 후 실제 도메인에 맞춰 `APP_URL`과 Supabase Auth의 Site URL 및 `/auth/callback`, `/login` Redirect URL을 수정하세요. 로컬 `http://localhost:3000` Redirect URL은 로컬 테스트를 위해 함께 유지할 수 있습니다. OpenAI 잔액·한도 오류는 배포로 해결되지 않습니다.
+
 ```bat
 npm run check:env
 npm run check:services

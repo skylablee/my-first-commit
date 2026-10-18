@@ -81,7 +81,7 @@ mock은 development/test와 개발 DB `allow_mock_billing=true`에서만 허용�
 1. 저장소를 GitHub에 올리고 Vercel에서 Next.js / 저장소 루트 / npm run build로 Import합니다.
 2. 환경변수와 Supabase Auth Redirect URLs (`/auth/callback`) 및 Threads Redirect URI를 등록합니다.
 3. DB 마이그레이션과 역할·RLS를 검증한 뒤 배포합니다. 환경변수 변경 후 재배포합니다.
-4. `vercel.json`은 `/api/cron/publish`를 매분 호출합니다. 이 주기를 지원하는 Vercel 플랜이 필요합니다. 호환 scheduler라면 `Authorization: Bearer <CRON_SECRET>`로 같은 GET endpoint를 호출합니다.
+4. 기본 `vercel.json`에는 자동 Cron이 없습니다. Threads 연결과 예약 발행을 검증할 단계에서 지원 요금제에 맞게 `/api/cron/publish` 호출 주기를 등록합니다. 매분 호출은 해당 주기를 지원하는 Vercel 플랜이 필요합니다. 호환 scheduler라면 `Authorization: Bearer <CRON_SECRET>`로 같은 GET endpoint를 호출합니다. scheduler 미설정 상태에서는 예약 작업이 자동 실행되지 않습니다.
 5. Cron 호출은 비밀 키 검증 후 persistent rate limit을 적용합니다. DB가 due job 한 건을 `FOR UPDATE SKIP LOCKED`로 claim하고 5분 lease를 잡습니다. 함수 실행 제한은 90초, Threads 요청은 15초 timeout입니다.
 6. 중복 호출은 동일 작업을 다시 claim하지 못합니다. 프로세스 중단 후 만료된 lease는 결과 불명으로 분리합니다. 초기 처리량은 cron당 1건/분이며 대량 운영에는 큐/worker를 확장해야 합니다.
 

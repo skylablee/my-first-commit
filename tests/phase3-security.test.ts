@@ -142,6 +142,60 @@ test("Vercel production cannot be downgraded by APP_ENV=development", () => {
   ).toBe(false);
 });
 
+test("core Vercel deployment validates auth and AI without requiring unconnected services", () => {
+  const core = {
+    VERCEL_ENV: "production",
+    DEPLOYMENT_PROFILE: "core",
+    NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co",
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: "public-test-value",
+    SUPABASE_SERVICE_ROLE_KEY: "server-test-value",
+    CRON_SECRET: "x".repeat(32),
+    APP_URL: "https://app.example.com",
+    OPENAI_API_KEY: "test-value",
+  };
+  expect(validateEnvironment(core)).toEqual({
+    stage: "production",
+    valid: true,
+    errors: [],
+  });
+  for (const name of [
+    "NEXT_PUBLIC_SUPABASE_URL",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "CRON_SECRET",
+    "APP_URL",
+    "OPENAI_API_KEY",
+  ])
+    expect(validateEnvironment({ ...core, [name]: "" }).valid).toBe(false);
+  expect(
+    validateEnvironment({ ...core, APP_URL: "http://localhost:3000" }).valid,
+  ).toBe(false);
+  expect(
+    validateEnvironment({
+      ...core,
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "sb_secret_not_public",
+    }).valid,
+  ).toBe(false);
+  expect(
+    validateEnvironment({ ...core, DEPLOYMENT_PROFILE: "full" }).valid,
+  ).toBe(false);
+  expect(
+    validateEnvironment({ ...core, DEPLOYMENT_PROFILE: "typo" }).valid,
+  ).toBe(false);
+  expect(validateEnvironment({ ...core, PAYMENT_PROVIDER: "mock" }).valid).toBe(
+    false,
+  );
+  expect(
+    validateEnvironment({ ...core, THREADS_APP_ID: "partial" }).valid,
+  ).toBe(false);
+  expect(
+    validateEnvironment({ ...core, NAVER_CLIENT_ID: "partial" }).valid,
+  ).toBe(false);
+  vi.stubEnv("VERCEL_ENV", "production");
+  vi.stubEnv("DEPLOYMENT_PROFILE", "core");
+  expect(() => new MockPaymentProvider()).toThrow("mock");
+});
+
 test("unknown server errors never expose raw secrets or stacks; response has correlation ID", async () => {
   const { route } = await import("../src/lib/server/api");
   const spy = vi.spyOn(console, "error").mockImplementation(() => {});
