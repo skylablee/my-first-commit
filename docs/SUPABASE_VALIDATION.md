@@ -28,3 +28,11 @@ Supabase만 검사했습니다. OpenAI·Gemini·Naver·Threads·결제 API는 �
 이 클라우드에서는 기본 Node fetch가 직접 DNS를 사용할 때 EAI_AGAIN이 발생했습니다. 제공된 HTTPS 프록시를 이용하도록 Node 24 실행 시 `NODE_USE_ENV_PROXY=1`을 지정한 뒤 실제 연결이 성공했습니다. TLS 검증은 유지했습니다. Windows 로컬에서 이 설정이 항상 필요한 것은 아닙니다.
 
 allow_mock_billing=false, staging_validation_enabled=false 상태입니다. 관리자 테스트 도구를 실행하려면 별도 DB opt-in이 필요합니다. 현재 검사는 전용 fixture를 사용해 직접 Supabase API로 수행했으며, 임시 사용량 제한 도구는 활성화하지 않았습니다.
+
+## Windows 회원가입 중 PGRST125 확인 및 보완
+
+프로젝트 URL 뒤에 `/rest/v1`을 포함하면 SDK가 해당 경로를 다시 붙여 `404 / PGRST125`가 발생하는 것을 실제 Supabase에서 재현했습니다. 프로젝트 origin으로 호출하면 동일 함수가 HTTP 200으로 응답했습니다. Windows의 직접 HTTP 검사도 성공했으나 SDK 함수 호출은 PGRST125로 실패했습니다.
+
+`getSupabaseConfig`는 Data API URL의 `/rest/v1` 및 `/rest/v1/`을 프로젝트 origin으로 정규화합니다. 사용자정보·쿼리·fragment·다른 API 경로를 포함한 주소는 거부합니다. SDK RPC 경로가 한 번만 붙는 회귀 테스트를 추가했습니다. 기존 Windows 복사본은 `.env.local`의 NEXT_PUBLIC_SUPABASE_URL을 프로젝트 origin으로 수정해 재시작하면 동일하게 해결할 수 있습니다.
+
+회원가입을 위한 최소 서버 설정은 Supabase URL·공개 키·서버 키와 내부 요청 제한용 CRON_SECRET입니다. CRON_SECRET 설정은 외부 Cron 서비스를 호출하지 않습니다. 실제 브라우저 회원가입은 URL 수정 후 재검증이 필요합니다.

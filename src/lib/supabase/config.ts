@@ -14,8 +14,18 @@ export function getSupabaseConfig() {
       )
     )
       return null;
+    if (
+      parsed.username ||
+      parsed.password ||
+      parsed.search ||
+      parsed.hash ||
+      !["/", "/rest/v1", "/rest/v1/"].includes(parsed.pathname)
+    )
+      return null;
+    // The dashboard's Data API URL includes /rest/v1. The SDK adds that path
+    // itself, so pass the project origin to both server and browser clients.
+    return { url: parsed.origin, key };
   } catch {
     return null;
   }
-  return { url, key };
 }

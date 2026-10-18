@@ -134,3 +134,9 @@ npm run check:services
 ```
 
 현재 환경에는 외부 서비스 키가 없으므로 실제 사용자 E2E·결제·Threads 게시 검증은 완료되지 않았습니다. 비밀값은 환경 설정에 입력하고 Git에 추가하지 마세요.
+
+## Supabase URL과 Windows 회원가입 설정
+
+`NEXT_PUBLIC_SUPABASE_URL`에는 `https://프로젝트ID.supabase.co`처럼 프로젝트 주소를 입력하세요. Data API 주소의 `/rest/v1` 경로는 SDK가 자체적으로 붙입니다. 최신 코드는 알려진 Data API 경로를 프로젝트 주소로 정규화합니다.
+
+회원가입·로그인도 서버 요청 제한을 사용하므로 Supabase 환경변수 3개에 더해 32자 이상의 별도 `CRON_SECRET`이 필요합니다. 생성한 값은 `.env.local`에 보관하고 채팅·로그·Git에 공개하지 마세요. 로컬 설정은 `http://localhost:3000/setup`에서 값 없이 설정 여부만 확인할 수 있습니다.

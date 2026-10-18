@@ -2,7 +2,11 @@ import { afterEach, expect, test, vi } from "vitest";
 import { getSupabaseConfig } from "../src/lib/supabase/config";
 import { checkOrigin, parseBody } from "../src/lib/server/api";
 import { z } from "zod";
-afterEach(() => vi.unstubAllEnvs());
+import { createClient } from "@supabase/supabase-js";
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
+});
 test("missing/invalid public config is safe, ANON key supported", () => {
   vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "");
   expect(getSupabaseConfig()).toBeNull();
@@ -11,6 +15,53 @@ test("missing/invalid public config is safe, ANON key supported", () => {
   expect(getSupabaseConfig()).toBeNull();
   vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://example.supabase.co");
   expect(getSupabaseConfig()?.key).toBe("public");
+});
+test.each(["/rest/v1", "/rest/v1/"])(
+  "Data API URL %s is normalized to the SDK project origin",
+  (path) => {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", `https://example.supabase.co${path}`);
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "public");
+    expect(getSupabaseConfig()).toEqual({
+      url: "https://example.supabase.co",
+      key: "public",
+    });
+  },
+);
+test("project config rejects credentials, query strings and unrelated API paths", () => {
+  vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "public");
+  for (const url of [
+    "https://user:password@example.supabase.co",
+    "https://example.supabase.co?token=private",
+    "https://example.supabase.co/#fragment",
+    "https://example.supabase.co/auth/v1",
+    "https://example.supabase.co/rest/v1/rpc",
+  ]) {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", url);
+    expect(getSupabaseConfig()).toBeNull();
+  }
+});
+test("SDK RPC uses one /rest/v1 prefix when a dashboard Data API URL is configured", async () => {
+  vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://example.supabase.co/rest/v1");
+  vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "public");
+  const fetcher = vi.fn(async (input: RequestInfo | URL) => {
+    const path = new URL(String(input)).pathname;
+    return path === "/rest/v1/rpc/consume_rate_limits"
+      ? new Response("true", { status: 200 })
+      : new Response(JSON.stringify({ code: "PGRST125" }), { status: 404 });
+  });
+  vi.stubGlobal("fetch", fetcher);
+  const config = getSupabaseConfig()!;
+  const client = createClient(config.url, config.key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const result = await client.rpc("consume_rate_limits", {
+    p_subjects: [],
+    p_service: "auth",
+    p_limit: 15,
+  });
+  expect(result.error).toBeNull();
+  expect(result.data).toBe(true);
+  expect(fetcher).toHaveBeenCalledTimes(1);
 });
 test("mutations reject foreign and absent origin", () => {
   expect(() =>
